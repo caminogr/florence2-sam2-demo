@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.machinery
 import logging
 import sys
 import types
@@ -40,6 +41,7 @@ def _register_flash_attn_mock() -> None:
         if mod_name not in sys.modules:
             mock = types.ModuleType(mod_name)
             mock.__path__ = []  # type: ignore[attr-defined]
+            mock.__spec__ = importlib.machinery.ModuleSpec(mod_name, None)
             for attr in _attrs:
                 setattr(mock, attr, _unavailable)
             sys.modules[mod_name] = mock
