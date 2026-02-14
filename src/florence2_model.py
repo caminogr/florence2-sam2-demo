@@ -49,36 +49,42 @@ class Florence2Model:
         logger.info("Loading Florence-2 model: %s on %s", self.model_id, self.device)
         dtype = torch.float16 if self.device == "cuda" else torch.float32
 
+        # Monkey-patch Florence2LanguageConfig BEFORE loading so that
+        # any attribute access (e.g. forced_bos_token_id) returns None
+        # instead of raising AttributeError.  This is needed because
+        # transformers' generate() probes config objects for many attrs.
+        from transformers import AutoConfig
+
+        _tmp_config = AutoConfig.from_pretrained(self.model_id, trust_remote_code=True)
+        # Find all Florence2-specific config classes and patch __getattr__
+        _patched_classes: set[type] = set()
+
+        def _safe_getattr(self_cfg: Any, name: str) -> Any:
+            """Return None for missing generation config attributes."""
+            if name.startswith("_"):
+                raise AttributeError(name)
+            return None
+
+        def _patch_config_class(cfg: Any) -> None:
+            cls = type(cfg)
+            if cls not in _patched_classes and "Florence2" in cls.__name__:
+                cls.__getattr__ = _safe_getattr
+                _patched_classes.add(cls)
+                logger.info("Patched %s.__getattr__ for compatibility", cls.__name__)
+
+        _patch_config_class(_tmp_config)
+        for attr_name in dir(_tmp_config):
+            sub_cfg = getattr(_tmp_config, attr_name, None)
+            if sub_cfg is not None and hasattr(sub_cfg, "__class__"):
+                if "Config" in type(sub_cfg).__name__:
+                    _patch_config_class(sub_cfg)
+        del _tmp_config
+
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
             torch_dtype=dtype,
             trust_remote_code=True,
-        )
-
-        # Patch Florence2LanguageConfig for newer transformers compatibility.
-        # The generate() method accesses attributes like forced_bos_token_id
-        # on sub-configs, which Florence-2's custom config doesn't define.
-        _GENERATION_DEFAULTS = {
-            "forced_bos_token_id": None,
-            "forced_eos_token_id": None,
-            "suppress_tokens": None,
-            "begin_suppress_tokens": None,
-            "forced_decoder_ids": None,
-        }
-        for sub in ["language_model", "text_config"]:
-            cfg = getattr(getattr(self._model, sub, None), "config", None)
-            if cfg is None:
-                cfg = getattr(self._model.config, sub, None)
-            if cfg is not None:
-                for attr, default in _GENERATION_DEFAULTS.items():
-                    if not hasattr(cfg, attr):
-                        setattr(cfg, attr, default)
-        # Also patch top-level config
-        for attr, default in _GENERATION_DEFAULTS.items():
-            if not hasattr(self._model.config, attr):
-                setattr(self._model.config, attr, default)
-
-        self._model = self._model.to(self.device)
+        ).to(self.device)
         self._processor = AutoProcessor.from_pretrained(
             self.model_id,
             trust_remote_code=True,
