@@ -10,6 +10,8 @@ pinned: false
 
 # Florence-2 + SAM 2 Image Recognition Demo
 
+🚀 **Live Demo:** [https://huggingface.co/spaces/camino-gr/florence2-sam2-demo](https://huggingface.co/spaces/camino-gr/florence2-sam2-demo)
+
 A combined pipeline that uses **Florence-2** for image captioning and object detection, then feeds detected objects into **SAM 2** for high-quality segmentation masks. Includes a **Gradio** web UI for interactive use.
 
 ## Architecture
