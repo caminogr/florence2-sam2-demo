@@ -54,6 +54,7 @@ class Florence2Model:
             revision=self.revision,
             torch_dtype=dtype,
             trust_remote_code=True,
+            attn_implementation="sdpa" if self.device == "cuda" else "eager",
         ).to(self.device)
         self._processor = AutoProcessor.from_pretrained(
             self.model_id,
