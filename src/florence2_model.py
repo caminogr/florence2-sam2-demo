@@ -3,12 +3,46 @@
 from __future__ import annotations
 
 import logging
+import sys
+import types
 from dataclasses import dataclass, field
 from typing import Any
 
 import torch
 from PIL import Image
 from transformers import AutoModelForCausalLM, AutoProcessor
+
+
+def _register_flash_attn_mock() -> None:
+    """Register mock flash_attn modules to prevent ImportError on CPU.
+
+    Florence-2's custom modeling code imports flash_attn at the module level.
+    On CPU-only environments (e.g. HF Spaces free tier), flash_attn cannot be
+    installed because it requires CUDA.  By registering stub modules before
+    ``from_pretrained`` triggers the import, the ImportError is avoided.
+    The stubs are never actually called because we set
+    ``attn_implementation="eager"``.
+    """
+    if torch.cuda.is_available():
+        return
+
+    def _unavailable(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
+        raise RuntimeError("flash_attn is not available on CPU")
+
+    _attrs = (
+        "flash_attn_func",
+        "flash_attn_varlen_func",
+        "index_first_axis",
+        "pad_input",
+        "unpad_input",
+    )
+    for mod_name in ("flash_attn", "flash_attn.bert_padding"):
+        if mod_name not in sys.modules:
+            mock = types.ModuleType(mod_name)
+            mock.__path__ = []  # type: ignore[attr-defined]
+            for attr in _attrs:
+                setattr(mock, attr, _unavailable)
+            sys.modules[mod_name] = mock
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +78,7 @@ class Florence2Model:
         """Lazy-load model and processor."""
         if self._model is not None:
             return
+        _register_flash_attn_mock()
         logger.info(
             "Loading Florence-2 model: %s (rev: %s) on %s",
             self.model_id, self.revision, self.device,
