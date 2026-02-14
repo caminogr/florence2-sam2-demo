@@ -49,28 +49,34 @@ class Florence2Model:
         logger.info("Loading Florence-2 model: %s on %s", self.model_id, self.device)
         dtype = torch.float16 if self.device == "cuda" else torch.float32
 
-        # Patch for transformers compatibility:
-        # Florence2LanguageConfig may lack 'forced_bos_token_id' in some versions
-        try:
-            from transformers.dynamic_module_utils import get_class_from_dynamic_module
-        except ImportError:
-            pass
-
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
             torch_dtype=dtype,
             trust_remote_code=True,
         )
 
-        # Fix missing forced_bos_token_id on language config
-        if hasattr(self._model, "language_model") and hasattr(
-            self._model.language_model, "config"
-        ):
-            lang_config = self._model.language_model.config
-            if not hasattr(lang_config, "forced_bos_token_id"):
-                lang_config.forced_bos_token_id = None
-            if not hasattr(lang_config, "forced_eos_token_id"):
-                lang_config.forced_eos_token_id = None
+        # Patch Florence2LanguageConfig for newer transformers compatibility.
+        # The generate() method accesses attributes like forced_bos_token_id
+        # on sub-configs, which Florence-2's custom config doesn't define.
+        _GENERATION_DEFAULTS = {
+            "forced_bos_token_id": None,
+            "forced_eos_token_id": None,
+            "suppress_tokens": None,
+            "begin_suppress_tokens": None,
+            "forced_decoder_ids": None,
+        }
+        for sub in ["language_model", "text_config"]:
+            cfg = getattr(getattr(self._model, sub, None), "config", None)
+            if cfg is None:
+                cfg = getattr(self._model.config, sub, None)
+            if cfg is not None:
+                for attr, default in _GENERATION_DEFAULTS.items():
+                    if not hasattr(cfg, attr):
+                        setattr(cfg, attr, default)
+        # Also patch top-level config
+        for attr, default in _GENERATION_DEFAULTS.items():
+            if not hasattr(self._model.config, attr):
+                setattr(self._model.config, attr, default)
 
         self._model = self._model.to(self.device)
         self._processor = AutoProcessor.from_pretrained(
