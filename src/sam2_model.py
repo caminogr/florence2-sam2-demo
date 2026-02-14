@@ -1,7 +1,7 @@
 """SAM 2 model wrapper for segmentation mask generation.
 
-Uses HuggingFace transformers' SAM2 implementation for broad compatibility,
-especially on HF Spaces where building the native sam2 package is impractical.
+Uses HuggingFace transformers' Sam2Processor / Sam2Model for compatibility
+on HF Spaces where building the native sam2 package is impractical.
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ from typing import Any
 import numpy as np
 import torch
 from PIL import Image
-from transformers import AutoModelForMaskGeneration, AutoProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +31,6 @@ class SegmentationResult:
 class SAM2Model:
     """Wrapper around Meta's SAM 2 for segmentation mask generation.
 
-    Uses HuggingFace transformers backend for compatibility.
-
     Args:
         model_id: HuggingFace model identifier for SAM 2.
         device: Device to run inference on. Auto-detected if None.
@@ -50,14 +47,16 @@ class SAM2Model:
         self._processor: Any = None
 
     def _load(self) -> None:
-        """Lazy-load SAM 2 model and processor via transformers."""
+        """Lazy-load SAM 2 model and processor."""
         if self._model is not None:
             return
         logger.info("Loading SAM 2 model: %s on %s", self.model_id, self.device)
-        self._processor = AutoProcessor.from_pretrained(self.model_id)
-        self._model = AutoModelForMaskGeneration.from_pretrained(self.model_id).to(
-            self.device
-        )
+
+        from transformers import Sam2Model as HFSam2Model
+        from transformers import Sam2Processor
+
+        self._processor = Sam2Processor.from_pretrained(self.model_id)
+        self._model = HFSam2Model.from_pretrained(self.model_id).to(self.device)
         self._model.eval()
         logger.info("SAM 2 model loaded successfully.")
 
@@ -96,16 +95,15 @@ class SAM2Model:
                 with torch.inference_mode():
                     outputs = self._model(**inputs)
 
-                pred_masks = self._processor.post_process_masks(
+                masks = self._processor.post_process_masks(
                     outputs.pred_masks,
                     inputs["original_sizes"],
                     inputs["reshaped_input_sizes"],
                 )
-                # pred_masks shape: [batch, num_masks, H, W] — pick best
-                mask_tensor = pred_masks[0][0]  # first batch, first query
+                # masks[0] shape: [num_queries, num_masks, H, W]
+                mask_tensor = masks[0].squeeze(0)  # remove batch
                 if mask_tensor.ndim == 3:
-                    # Multiple mask proposals — use the first (highest confidence)
-                    mask_tensor = mask_tensor[0]
+                    mask_tensor = mask_tensor[0]  # take best mask
                 mask_np = mask_tensor.cpu().numpy().astype(bool)
                 masks_out.append(mask_np)
             except Exception as e:
