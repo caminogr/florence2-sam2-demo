@@ -1,3 +1,14 @@
+---
+title: Florence-2 + SAM 2 Demo
+emoji: 🔍
+colorFrom: blue
+colorTo: purple
+sdk: gradio
+sdk_version: "4.0.0"
+app_file: app.py
+pinned: false
+---
+
 # Florence-2 + SAM 2 Image Recognition Demo
 
 A combined pipeline that uses **Florence-2** for image captioning and object detection, then feeds detected objects into **SAM 2** for high-quality segmentation masks. Includes a **Gradio** web UI for interactive use.
