@@ -24,13 +24,55 @@ class DetectionResult:
     labels: list[str] = field(default_factory=list)
 
 
-class Florence2Model:
-    """Wrapper around Microsoft Florence-2 for captioning and object detection.
+def _patch_florence2_config(model: Any) -> None:
+    """Patch all config objects in the model to handle missing generation attrs.
 
-    Args:
-        model_id: HuggingFace model identifier.
-        device: Device to run inference on. Auto-detected if None.
+    Florence-2's custom config classes don't define attributes that newer
+    transformers' generate() expects. We add a __getattr__ fallback that
+    returns None for any missing attribute instead of raising AttributeError.
     """
+    patched: set[int] = set()
+
+    def _add_fallback(cfg: Any) -> None:
+        cls = type(cfg)
+        cls_id = id(cls)
+        if cls_id in patched:
+            return
+        # Only patch Florence2-specific config classes
+        if "Florence2" not in cls.__name__:
+            return
+
+        original_getattr = getattr(cls, "__getattr__", None)
+
+        def safe_getattr(self: Any, name: str) -> Any:
+            if name.startswith("_"):
+                raise AttributeError(name)
+            if original_getattr is not None:
+                try:
+                    return original_getattr(self, name)
+                except AttributeError:
+                    pass
+            return None
+
+        cls.__getattr__ = safe_getattr
+        patched.add(cls_id)
+        logger.info("Patched %s for generate() compatibility", cls.__name__)
+
+    # Patch the main config and all sub-configs
+    if hasattr(model, "config"):
+        _add_fallback(model.config)
+        for attr_name in vars(model.config):
+            sub = getattr(model.config, attr_name, None)
+            if sub is not None and hasattr(sub, "__class__") and "Config" in type(sub).__name__:
+                _add_fallback(sub)
+
+    # Also check language_model sub-module
+    if hasattr(model, "language_model") and hasattr(model.language_model, "config"):
+        _add_fallback(model.language_model.config)
+
+
+class Florence2Model:
+    """Wrapper around Microsoft Florence-2 for captioning and object detection."""
 
     def __init__(
         self,
@@ -52,7 +94,9 @@ class Florence2Model:
             self.model_id,
             torch_dtype=dtype,
             trust_remote_code=True,
-        ).to(self.device)
+        )
+        _patch_florence2_config(self._model)
+        self._model = self._model.to(self.device)
         self._processor = AutoProcessor.from_pretrained(
             self.model_id,
             trust_remote_code=True,

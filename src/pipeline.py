@@ -41,7 +41,7 @@ class RecognitionPipeline:
     def __init__(
         self,
         florence2_model_id: str = "microsoft/Florence-2-large",
-        sam2_checkpoint: str = "facebook/sam-vit-base",
+        sam2_checkpoint: str = "facebook/sam2-hiera-large",
         device: str | None = None,
     ) -> None:
         self.florence2 = Florence2Model(model_id=florence2_model_id, device=device)

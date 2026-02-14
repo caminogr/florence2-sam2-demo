@@ -3,8 +3,7 @@ title: Florence-2 + SAM Demo
 emoji: 🔍
 colorFrom: blue
 colorTo: purple
-sdk: gradio
-sdk_version: "5.9.1"
+sdk: docker
 app_file: app.py
 pinned: false
 ---
