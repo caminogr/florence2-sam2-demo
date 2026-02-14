@@ -48,11 +48,31 @@ class Florence2Model:
             return
         logger.info("Loading Florence-2 model: %s on %s", self.model_id, self.device)
         dtype = torch.float16 if self.device == "cuda" else torch.float32
+
+        # Patch for transformers compatibility:
+        # Florence2LanguageConfig may lack 'forced_bos_token_id' in some versions
+        try:
+            from transformers.dynamic_module_utils import get_class_from_dynamic_module
+        except ImportError:
+            pass
+
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
             torch_dtype=dtype,
             trust_remote_code=True,
-        ).to(self.device)
+        )
+
+        # Fix missing forced_bos_token_id on language config
+        if hasattr(self._model, "language_model") and hasattr(
+            self._model.language_model, "config"
+        ):
+            lang_config = self._model.language_model.config
+            if not hasattr(lang_config, "forced_bos_token_id"):
+                lang_config.forced_bos_token_id = None
+            if not hasattr(lang_config, "forced_eos_token_id"):
+                lang_config.forced_eos_token_id = None
+
+        self._model = self._model.to(self.device)
         self._processor = AutoProcessor.from_pretrained(
             self.model_id,
             trust_remote_code=True,
