@@ -13,6 +13,7 @@ from transformers import AutoModelForCausalLM, AutoProcessor
 logger = logging.getLogger(__name__)
 
 MODEL_ID = "microsoft/Florence-2-large"
+MODEL_REVISION = "21a599d414c4d928c9032694c424fb94458e3594"
 
 
 @dataclass
@@ -24,63 +25,18 @@ class DetectionResult:
     labels: list[str] = field(default_factory=list)
 
 
-def _patch_florence2_config(model: Any) -> None:
-    """Patch all config objects in the model to handle missing generation attrs.
-
-    Florence-2's custom config classes don't define attributes that newer
-    transformers' generate() expects. We add a __getattr__ fallback that
-    returns None for any missing attribute instead of raising AttributeError.
-    """
-    patched: set[int] = set()
-
-    def _add_fallback(cfg: Any) -> None:
-        cls = type(cfg)
-        cls_id = id(cls)
-        if cls_id in patched:
-            return
-        # Only patch Florence2-specific config classes
-        if "Florence2" not in cls.__name__:
-            return
-
-        original_getattr = getattr(cls, "__getattr__", None)
-
-        def safe_getattr(self: Any, name: str) -> Any:
-            if name.startswith("_"):
-                raise AttributeError(name)
-            if original_getattr is not None:
-                try:
-                    return original_getattr(self, name)
-                except AttributeError:
-                    pass
-            return None
-
-        cls.__getattr__ = safe_getattr
-        patched.add(cls_id)
-        logger.info("Patched %s for generate() compatibility", cls.__name__)
-
-    # Patch the main config and all sub-configs
-    if hasattr(model, "config"):
-        _add_fallback(model.config)
-        for attr_name in vars(model.config):
-            sub = getattr(model.config, attr_name, None)
-            if sub is not None and hasattr(sub, "__class__") and "Config" in type(sub).__name__:
-                _add_fallback(sub)
-
-    # Also check language_model sub-module
-    if hasattr(model, "language_model") and hasattr(model.language_model, "config"):
-        _add_fallback(model.language_model.config)
-
-
 class Florence2Model:
     """Wrapper around Microsoft Florence-2 for captioning and object detection."""
 
     def __init__(
         self,
         model_id: str = MODEL_ID,
+        revision: str = MODEL_REVISION,
         device: str | None = None,
     ) -> None:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model_id = model_id
+        self.revision = revision
         self._model: Any = None
         self._processor: Any = None
 
@@ -88,17 +44,20 @@ class Florence2Model:
         """Lazy-load model and processor."""
         if self._model is not None:
             return
-        logger.info("Loading Florence-2 model: %s on %s", self.model_id, self.device)
+        logger.info(
+            "Loading Florence-2 model: %s (rev: %s) on %s",
+            self.model_id, self.revision, self.device,
+        )
         dtype = torch.float16 if self.device == "cuda" else torch.float32
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
+            revision=self.revision,
             torch_dtype=dtype,
             trust_remote_code=True,
-        )
-        _patch_florence2_config(self._model)
-        self._model = self._model.to(self.device)
+        ).to(self.device)
         self._processor = AutoProcessor.from_pretrained(
             self.model_id,
+            revision=self.revision,
             trust_remote_code=True,
         )
         logger.info("Florence-2 model loaded successfully.")
