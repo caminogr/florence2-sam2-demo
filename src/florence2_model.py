@@ -48,38 +48,6 @@ class Florence2Model:
             return
         logger.info("Loading Florence-2 model: %s on %s", self.model_id, self.device)
         dtype = torch.float16 if self.device == "cuda" else torch.float32
-
-        # Monkey-patch Florence2LanguageConfig BEFORE loading so that
-        # any attribute access (e.g. forced_bos_token_id) returns None
-        # instead of raising AttributeError.  This is needed because
-        # transformers' generate() probes config objects for many attrs.
-        from transformers import AutoConfig
-
-        _tmp_config = AutoConfig.from_pretrained(self.model_id, trust_remote_code=True)
-        # Find all Florence2-specific config classes and patch __getattr__
-        _patched_classes: set[type] = set()
-
-        def _safe_getattr(self_cfg: Any, name: str) -> Any:
-            """Return None for missing generation config attributes."""
-            if name.startswith("_"):
-                raise AttributeError(name)
-            return None
-
-        def _patch_config_class(cfg: Any) -> None:
-            cls = type(cfg)
-            if cls not in _patched_classes and "Florence2" in cls.__name__:
-                cls.__getattr__ = _safe_getattr
-                _patched_classes.add(cls)
-                logger.info("Patched %s.__getattr__ for compatibility", cls.__name__)
-
-        _patch_config_class(_tmp_config)
-        for attr_name in dir(_tmp_config):
-            sub_cfg = getattr(_tmp_config, attr_name, None)
-            if sub_cfg is not None and hasattr(sub_cfg, "__class__"):
-                if "Config" in type(sub_cfg).__name__:
-                    _patch_config_class(sub_cfg)
-        del _tmp_config
-
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
             torch_dtype=dtype,
@@ -115,32 +83,16 @@ class Florence2Model:
         return parsed
 
     def caption(self, image: Image.Image) -> str:
-        """Generate a caption for the image.
-
-        Args:
-            image: PIL Image to caption.
-
-        Returns:
-            Caption string.
-        """
+        """Generate a caption for the image."""
         result = self._run_task(image, "<MORE_DETAILED_CAPTION>")
         return result.get("<MORE_DETAILED_CAPTION>", "")
 
     def detect(self, image: Image.Image) -> DetectionResult:
-        """Detect objects and generate a caption.
-
-        Args:
-            image: PIL Image to process.
-
-        Returns:
-            DetectionResult with caption, bboxes, and labels.
-        """
+        """Detect objects and generate a caption."""
         caption = self.caption(image)
         od_result = self._run_task(image, "<OD>")
-
         od_data = od_result.get("<OD>", {})
         bboxes: list[list[float]] = od_data.get("bboxes", [])
         labels: list[str] = od_data.get("labels", [])
-
         logger.info("Detected %d objects.", len(bboxes))
         return DetectionResult(caption=caption, bboxes=bboxes, labels=labels)

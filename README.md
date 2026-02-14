@@ -1,5 +1,5 @@
 ---
-title: Florence-2 + SAM 2 Demo
+title: Florence-2 + SAM Demo
 emoji: 🔍
 colorFrom: blue
 colorTo: purple
