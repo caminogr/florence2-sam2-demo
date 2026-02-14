@@ -45,7 +45,7 @@ class RecognitionPipeline:
         device: str | None = None,
     ) -> None:
         self.florence2 = Florence2Model(model_id=florence2_model_id, device=device)
-        self.sam2 = SAM2Model(checkpoint=sam2_checkpoint, device=device)
+        self.sam2 = SAM2Model(model_id=sam2_checkpoint, device=device)
         self.visualizer = Visualizer()
 
     def run(self, image: Image.Image) -> PipelineResult:
