@@ -28,7 +28,7 @@ class SegmentationResult:
     bboxes: list[list[float]] = field(default_factory=list)
 
 
-class SAM2Model:
+class SAMModel:
     """Wrapper around SAM for segmentation mask generation.
 
     Uses SAM v1 via transformers for stable compatibility with transformers==4.44.2.

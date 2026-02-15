@@ -1,4 +1,4 @@
-"""Gradio demo app for Florence-2 + SAM 2 image recognition pipeline."""
+"""Gradio demo app for Florence-2 + SAM image recognition pipeline."""
 
 from __future__ import annotations
 
@@ -81,11 +81,11 @@ def caption_only(image: Image.Image) -> str:
 def build_demo() -> gr.Blocks:
     """Build the Gradio demo interface."""
     with gr.Blocks(
-        title="Florence-2 + SAM 2 Demo",
+        title="Florence-2 + SAM Demo",
         theme=gr.themes.Soft(),
     ) as demo:
         gr.Markdown(
-            "# 🔍 Florence-2 + SAM 2 Image Recognition\n"
+            "# 🔍 Florence-2 + SAM Image Recognition\n"
             "Upload an image to get **captions**, **object detection**, "
             "and **segmentation masks**."
         )
@@ -123,7 +123,7 @@ def build_demo() -> gr.Blocks:
         gr.Markdown(
             "---\n"
             "**Models:** [Florence-2-large](https://huggingface.co/microsoft/Florence-2-large) "
-            "(Microsoft) + [SAM 2](https://github.com/facebookresearch/segment-anything-2) (Meta)\n\n"
+            "(Microsoft) + [SAM](https://github.com/facebookresearch/segment-anything) (Meta)\n\n"
             "Models are downloaded on first run (~4GB). CPU supported; GPU recommended for speed."
         )
 

@@ -8,11 +8,11 @@ app_file: app.py
 pinned: false
 ---
 
-# Florence-2 + SAM 2 Image Recognition Demo
+# Florence-2 + SAM Image Recognition Demo
 
-🚀 **Live Demo:** [https://huggingface.co/spaces/camino-gr/florence2-sam2-demo](https://huggingface.co/spaces/camino-gr/florence2-sam2-demo)
+🚀 **Live Demo:** [https://huggingface.co/spaces/camino-gr/florence2-sam-demo](https://huggingface.co/spaces/camino-gr/florence2-sam-demo)
 
-A combined pipeline that uses **Florence-2** for image captioning and object detection, then feeds detected objects into **SAM 2** for high-quality segmentation masks. Includes a **Gradio** web UI for interactive use.
+A combined pipeline that uses **Florence-2** for image captioning and object detection, then feeds detected objects into **SAM** for high-quality segmentation masks. Includes a **Gradio** web UI for interactive use.
 
 ## Architecture
 
@@ -27,7 +27,7 @@ Input Image
        │ bounding boxes
        ▼
 ┌──────────────┐
-│    SAM 2      │  → Segmentation masks for each detected object
+│    SAM      │  → Segmentation masks for each detected object
 │    (Meta)     │
 └──────┬───────┘
        │
@@ -44,7 +44,7 @@ Input Image
 
 - **Image Captioning** — Generate natural language descriptions of images
 - **Object Detection** — Detect objects with bounding boxes using Florence-2
-- **Instance Segmentation** — Pixel-level masks via SAM 2 for each detected object
+- **Instance Segmentation** — Pixel-level masks via SAM for each detected object
 - **Interactive Web UI** — Upload images and see results instantly via Gradio
 
 ## Setup
@@ -57,8 +57,8 @@ Input Image
 ### Installation
 
 ```bash
-git clone https://github.com/caminogr/florence2-sam2-demo.git
-cd florence2-sam2-demo
+git clone https://github.com/caminogr/florence2-sam-demo.git
+cd florence2-sam-demo
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
@@ -88,14 +88,14 @@ The pipeline runs on **CPU by default**. To use GPU, ensure CUDA is available �
 ## Project Structure
 
 ```
-florence2-sam2-demo/
+florence2-sam-demo/
 ├── README.md
 ├── requirements.txt
 ├── pyproject.toml
 ├── src/
 │   ├── __init__.py
 │   ├── florence2_model.py    # Florence-2 inference wrapper
-│   ├── sam2_model.py         # SAM 2 inference wrapper
+│   ├── sam_model.py         # SAM inference wrapper
 │   ├── pipeline.py           # Combined pipeline
 │   └── visualization.py      # Drawing bboxes, masks, captions
 ├── app.py                    # Gradio demo
@@ -114,7 +114,7 @@ _Screenshots will be added after first successful run._
 | Model | Source | Purpose |
 |-------|--------|---------|
 | [Florence-2-large](https://huggingface.co/microsoft/Florence-2-large) | Microsoft | Captioning + Object Detection |
-| [SAM 2](https://github.com/facebookresearch/segment-anything-2) | Meta | Segmentation Masks |
+| [SAM](https://github.com/facebookresearch/segment-anything) | Meta | Segmentation Masks |
 
 ## License
 

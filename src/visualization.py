@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 if TYPE_CHECKING:
     from src.florence2_model import DetectionResult
-    from src.sam2_model import SegmentationResult
+    from src.sam_model import SegmentationResult
 
 
 def _generate_colors(n: int) -> list[tuple[int, int, int]]:
@@ -93,7 +93,7 @@ class Visualizer:
 
         Args:
             image: Base PIL Image.
-            segmentation: SegmentationResult from SAM 2.
+            segmentation: SegmentationResult from SAM.
 
         Returns:
             New image with colored masks overlaid.

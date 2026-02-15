@@ -3,9 +3,9 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
-name = "florence2-sam2-demo"
+name = "florence2-sam-demo"
 version = "0.1.0"
-description = "Florence-2 + SAM 2 image recognition pipeline with Gradio UI"
+description = "Florence-2 + SAM image recognition pipeline with Gradio UI"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
@@ -24,4 +24,4 @@ dependencies = [
 ]
 
 [project.scripts]
-florence2-sam2-demo = "app:main"
+florence2-sam-demo = "app:main"
